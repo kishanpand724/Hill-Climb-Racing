@@ -1,0 +1,6 @@
+{
+  "name": "Hill Climb X",
+  "description": "A 2D physics-based hill-climbing car racing game with procedural terrain, suspension physics, vehicle garage, and upgrades.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
