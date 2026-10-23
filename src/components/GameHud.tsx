@@ -4,9 +4,17 @@ export interface HudSnapshot {
   distanceMeters: number;
   bestDistanceMeters: number;
   coins: number;
+  runCoins: number;
   fuelPct: number;
   lowFuel: boolean;
+  conditionPct: number;
+  stuntCombo: number;
+  weatherLabel: string;
+  seasonBanner: string | null;
   speedKmh: number;
+  rpm: number;
+  vehicleName: string;
+  mapName: string;
   gasPressed: boolean;
   brakePressed: boolean;
 }
@@ -38,14 +46,27 @@ export const GameHud: React.FC<GameHudProps> = ({
   onBrakeDown,
   onBrakeUp,
 }) => {
+  const rpmPct = Math.max(8, Math.min(100, ((hud.rpm - 800) / 7000) * 100));
+  const highRpm = rpmPct > 78;
+
   return (
     <div className="fixed inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 md:p-6">
+      {/* Top-Center Animated Season / Secret Route Notification Banner */}
+      {hud.seasonBanner && (
+        <div
+          data-testid="hud-season-banner"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-20 px-5 py-2 rounded-2xl bg-slate-950/90 border-2 border-amber-400 text-amber-300 font-display font-black text-sm md:text-base uppercase tracking-wider shadow-[0_4px_0_#0f172a] animate-bounce whitespace-nowrap"
+        >
+          {hud.seasonBanner}
+        </div>
+      )}
+
       {/* Top Perimeter Bar: Left Telemetry Cluster & Right Utility Buttons */}
       <div className="flex items-start justify-between gap-4">
-        {/* Top-Left Cluster: Fuel Bar, Distance, Coins */}
-        <div className="flex flex-col gap-2.5">
-          {/* Fuel Gauge with Custom Jerrycan Icon & Ghost Drain Bar */}
-          <div className="flex items-center gap-2.5 bg-slate-950/90 border-2 border-slate-900 rounded-2xl px-3.5 py-2 shadow-[0_4px_0_#0f172a]">
+        {/* Top-Left Cluster: Fuel & Condition Bar, Map/Vehicle/Weather Kicker, Distance, Coins */}
+        <div className="flex flex-col gap-2">
+          {/* Fuel Gauge + Chassis Condition Indicator */}
+          <div className="flex items-center gap-3 bg-slate-950/90 border-2 border-slate-900 rounded-2xl px-3.5 py-2 shadow-[0_4px_0_#0f172a]">
             <svg viewBox="0 0 24 24" className="w-6 h-6 shrink-0" aria-hidden="true">
               <rect x="4" y="4" width="14" height="17" rx="3" fill="#0f172a" />
               <rect x="5.5" y="5.5" width="11" height="14" rx="2" fill="#ef4444" />
@@ -69,14 +90,12 @@ export const GameHud: React.FC<GameHudProps> = ({
                 </span>
               </div>
 
-              <div className="w-36 sm:w-44 h-3.5 bg-slate-900 rounded-md overflow-hidden border border-slate-800 relative">
-                {/* Delayed trailing drain ghost bar */}
+              <div className="w-32 sm:w-40 h-3 bg-slate-900 rounded-md overflow-hidden border border-slate-800 relative">
                 <div
                   ref={fuelGhostRef}
                   className="absolute inset-y-0 left-0 bg-amber-200/50 origin-left transition-transform duration-300"
                   style={{ width: '100%', transform: `scaleX(${Math.max(0, Math.min(1, hud.fuelPct / 100))})` }}
                 />
-                {/* Immediate fuel fill bar */}
                 <div
                   ref={fuelBarRef}
                   className={`absolute inset-y-0 left-0 origin-left ${
@@ -86,9 +105,42 @@ export const GameHud: React.FC<GameHudProps> = ({
                 />
               </div>
             </div>
+
+            {/* Chassis Condition Readout */}
+            <div className="pl-2.5 border-l border-slate-800 flex flex-col items-end">
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
+                CHASSIS
+              </span>
+              <span
+                data-testid="hud-condition"
+                className={`font-mono font-bold text-xs tabular-nums ${
+                  hud.conditionPct < 50
+                    ? 'text-red-400'
+                    : hud.conditionPct < 80
+                    ? 'text-amber-300'
+                    : 'text-emerald-400'
+                }`}
+              >
+                {Math.round(hud.conditionPct)}%
+              </span>
+            </div>
           </div>
 
-          {/* Distance & Coins Row (Hero-to-Kicker 3:1 Scale with Tabular Numerals) */}
+          {/* Current Map, Vehicle & Weather Kicker Line */}
+          <div
+            data-testid="hud-stage-vehicle"
+            className="px-1 text-[11px] font-mono font-bold uppercase tracking-wider text-sky-300 hud-stroke-sm flex flex-wrap items-center gap-1.5"
+          >
+            <span>{hud.mapName}</span>
+            <span className="text-slate-300">·</span>
+            <span className="text-emerald-300">{hud.vehicleName}</span>
+            <span className="text-slate-300">·</span>
+            <span data-testid="hud-weather" className="text-amber-300">
+              {hud.weatherLabel}
+            </span>
+          </div>
+
+          {/* Distance, Coins & Stunt Combo Row */}
           <div className="flex items-center gap-5 px-1">
             <div>
               <div className="text-[11px] font-extrabold uppercase tracking-wider text-amber-300 hud-stroke-sm">
@@ -110,7 +162,7 @@ export const GameHud: React.FC<GameHudProps> = ({
               </svg>
               <div>
                 <div className="text-[10px] font-extrabold uppercase tracking-wider text-amber-200 hud-stroke-sm">
-                  COINS
+                  RUN +{hud.runCoins} · TOTAL
                 </div>
                 <div
                   data-testid="hud-coins"
@@ -120,6 +172,15 @@ export const GameHud: React.FC<GameHudProps> = ({
                 </div>
               </div>
             </div>
+
+            {hud.stuntCombo > 1 && (
+              <div
+                data-testid="hud-stunt-combo"
+                className="px-2.5 py-1 rounded-xl bg-sky-500 text-slate-950 border-2 border-slate-950 font-display font-black text-xs uppercase tracking-wider shadow-[0_3px_0_#0f172a]"
+              >
+                {hud.stuntCombo}x COMBO
+              </div>
+            )}
           </div>
         </div>
 
@@ -183,8 +244,8 @@ export const GameHud: React.FC<GameHudProps> = ({
         </div>
       </div>
 
-      {/* Bottom Perimeter Pedals for Touch & Desktop Feedback */}
-      <div className="flex items-end justify-between gap-4 pb-1">
+      {/* Bottom Perimeter Pedals & Center Speed + RPM Gauge */}
+      <div className="flex items-end justify-between gap-3 pb-1">
         {/* Left Pedal: BRAKE / REVERSE */}
         <button
           type="button"
@@ -197,34 +258,51 @@ export const GameHud: React.FC<GameHudProps> = ({
           onPointerUp={onBrakeUp}
           onPointerLeave={onBrakeUp}
           onPointerCancel={onBrakeUp}
-          className={`pointer-events-auto w-28 sm:w-36 h-24 sm:h-28 rounded-2xl border-3 border-slate-950 flex flex-col items-center justify-between p-3 transition-transform select-none cursor-pointer ${
+          className={`pointer-events-auto w-28 sm:w-36 h-24 sm:h-28 rounded-2xl border-3 border-slate-950 flex flex-col items-center justify-between p-2.5 sm:p-3 transition-transform select-none cursor-pointer ${
             hud.brakePressed
               ? 'bg-red-500 text-white translate-y-1.5 shadow-[0_2px_0_#0f172a]'
               : 'bg-slate-800/95 hover:bg-slate-700 text-slate-100 shadow-[0_6px_0_#0f172a]'
           }`}
         >
-          <span className="text-[11px] font-mono font-bold uppercase tracking-widest opacity-80">
+          <span className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider opacity-80 whitespace-nowrap">
             [A / LEFT]
           </span>
-          {/* Pedal Tread Bars */}
           <div className="w-full flex flex-col gap-1.5 px-2" aria-hidden="true">
             <div className="h-2 rounded-full bg-slate-950/50" />
             <div className="h-2 rounded-full bg-slate-950/50" />
             <div className="h-2 rounded-full bg-slate-950/50" />
           </div>
-          <span className="font-display font-black text-sm sm:text-base tracking-wider uppercase">
+          <span className="font-display font-black text-sm sm:text-base tracking-wider uppercase leading-none">
             BRAKE
           </span>
         </button>
 
-        {/* Center-Bottom Compact Speed Readout */}
-        <div className="hidden sm:flex flex-col items-center pb-1">
-          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-200 hud-stroke-sm">
-            SPEED
-          </span>
-          <span className="font-mono font-extrabold text-xl text-white tabular-nums hud-stroke">
-            {hud.speedKmh} km/h
-          </span>
+        {/* Center-Bottom Speedometer & Live Engine RPM Bar */}
+        <div className="flex flex-col items-center gap-1 pb-1 min-w-[115px] sm:min-w-[165px]">
+          <div className="flex items-baseline gap-2">
+            <span
+              data-testid="hud-speed"
+              className="font-mono font-extrabold text-lg sm:text-2xl text-white tabular-nums hud-stroke leading-none"
+            >
+              {hud.speedKmh} km/h
+            </span>
+          </div>
+          <div className="w-full bg-slate-950/90 border border-slate-800 rounded-lg px-2 py-1 flex flex-col gap-1">
+            <div className="flex items-center justify-between text-[9px] font-mono font-bold uppercase tracking-wider text-slate-300">
+              <span>RPM</span>
+              <span data-testid="hud-rpm" className="tabular-nums text-amber-300">
+                {Math.round(hud.rpm)}
+              </span>
+            </div>
+            <div className="w-full h-2 bg-slate-900 rounded-sm overflow-hidden">
+              <div
+                className={`h-full transition-all duration-75 ${
+                  highRpm ? 'bg-red-500' : 'bg-amber-400'
+                }`}
+                style={{ width: `${rpmPct.toFixed(1)}%` }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Right Pedal: ACCELERATE / GAS */}
@@ -239,13 +317,13 @@ export const GameHud: React.FC<GameHudProps> = ({
           onPointerUp={onGasUp}
           onPointerLeave={onGasUp}
           onPointerCancel={onGasUp}
-          className={`pointer-events-auto w-28 sm:w-36 h-24 sm:h-28 rounded-2xl border-3 border-slate-950 flex flex-col items-center justify-between p-3 transition-transform select-none cursor-pointer ${
+          className={`pointer-events-auto w-28 sm:w-36 h-24 sm:h-28 rounded-2xl border-3 border-slate-950 flex flex-col items-center justify-between p-2.5 sm:p-3 transition-transform select-none cursor-pointer ${
             hud.gasPressed
               ? 'bg-emerald-400 text-slate-950 translate-y-1.5 shadow-[0_2px_0_#0f172a]'
               : 'bg-emerald-500/95 hover:bg-emerald-400 text-slate-950 shadow-[0_6px_0_#0f172a]'
           }`}
         >
-          <span className="text-[11px] font-mono font-bold uppercase tracking-widest opacity-80">
+          <span className="text-[10px] sm:text-[11px] font-mono font-bold uppercase tracking-wider opacity-80 whitespace-nowrap">
             [D / RIGHT]
           </span>
           <div className="w-full flex flex-col gap-1.5 px-2" aria-hidden="true">
@@ -253,7 +331,7 @@ export const GameHud: React.FC<GameHudProps> = ({
             <div className="h-2 rounded-full bg-slate-950/35" />
             <div className="h-2 rounded-full bg-slate-950/35" />
           </div>
-          <span className="font-display font-black text-sm sm:text-base tracking-wider uppercase">
+          <span className="font-display font-black text-sm sm:text-base tracking-wider uppercase leading-none">
             GAS
           </span>
         </button>
